@@ -25,3 +25,5 @@ filtered-openapi.yaml
 uv.lock
 .comfy_environment
 /previews/
+/deploy/azure/.state.json
+/deploy/azure/*.parameters.json
