@@ -30,8 +30,10 @@ async def check(base, verify_only, data_directory):
                     raise
                 await asyncio.sleep(2)
 
-        nodes = await get_json('/object_info/FoundryKlingTextToVideo')
-        assert nodes['FoundryKlingTextToVideo']['output'] == ['VIDEO', 'STRING']
+        for node in ('FoundryKlingTextToVideo', 'FoundryLTXFastVideo', 'FoundryLTXProVideo',
+                     'FoundryMiniMaxVideo', 'FoundryMiniMaxTurboVideo'):
+            nodes = await get_json('/object_info/' + node)
+            assert nodes[node]['output'] == ['VIDEO', 'STRING']
         if verify_only:
             manifest = json.loads(manifest_path.read_text())
             image = manifest['output']

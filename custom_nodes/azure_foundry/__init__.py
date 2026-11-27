@@ -1,16 +1,10 @@
 """Foundry nodes use the server identity, independently of Comfy partner credits."""
 import os
-from pathlib import Path
 
-import requests
-from azure.identity import DefaultAzureCredential
+from comfy_api.latest import ComfyExtension, io
 
-import folder_paths
-from comfy.model_management import throw_exception_if_processing_interrupted
-from comfy.utils import ProgressBar
-from comfy_api.latest import ComfyExtension, InputImpl, io
-
-from .client import FoundryClient
+from .runtime import generate_video
+from .video_nodes import VIDEO_NODES
 
 
 class FoundryKlingTextToVideo(io.ComfyNode):
@@ -34,27 +28,17 @@ class FoundryKlingTextToVideo(io.ComfyNode):
 
     @classmethod
     def execute(cls, prompt, duration, aspect_ratio, generate_audio, take):
-        endpoint = os.environ.get('FOUNDRY_VIDEO_ENDPOINT', '')
         deployment = os.environ.get('FOUNDRY_VIDEO_DEPLOYMENT', '')
         if not deployment:
             raise ValueError('Set FOUNDRY_VIDEO_DEPLOYMENT on the ComfyUI server.')
         payload = {'model': deployment, 'prompt': prompt, 'duration': str(duration),
                    'aspect_ratio': aspect_ratio, 'generate_audio': generate_audio}
-        progress = ProgressBar(4)
-        with DefaultAzureCredential(managed_identity_client_id=os.environ.get('AZURE_CLIENT_ID')) as credential:
-            with requests.Session() as session:
-                client = FoundryClient(endpoint, credential, session)
-                video, request_id = client.generate(
-                    payload, take, Path(folder_paths.get_system_user_directory('foundry')) / 'jobs',
-                    check_interrupt=throw_exception_if_processing_interrupted,
-                    progress=progress.update_absolute,
-                )
-        return io.NodeOutput(InputImpl.VideoFromFile(str(video)), request_id)
+        return generate_video(payload, take)
 
 
 class FoundryExtension(ComfyExtension):
     async def get_node_list(self):
-        return [FoundryKlingTextToVideo]
+        return [FoundryKlingTextToVideo, *VIDEO_NODES]
 
 
 async def comfy_entrypoint():

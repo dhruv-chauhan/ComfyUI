@@ -19,7 +19,7 @@ def save_json(path, value):
 
 
 class FoundryClient:
-    def __init__(self, endpoint, credential, session):
+    def __init__(self, endpoint, credential, session, route=KLING_ROOT):
         parsed = urlsplit(endpoint)
         if (parsed.scheme != 'https' or not parsed.hostname
                 or not parsed.hostname.endswith('.services.ai.azure.com')
@@ -28,7 +28,8 @@ class FoundryClient:
             raise ValueError('Configure a Foundry resource HTTPS endpoint, without a project path.')
         self.endpoint = endpoint.rstrip('/')
         self.origin = urlsplit(self.endpoint).netloc
-        self.root = self.endpoint + KLING_ROOT
+        self.route = route
+        self.root = self.endpoint + route
         self.credential = credential
         self.session = session
 
@@ -79,8 +80,10 @@ class FoundryClient:
         raise RuntimeError('Too many video redirects.')
 
     def generate(self, payload, take, journal_root, check_interrupt=lambda: None,
-                 progress=lambda stage: None, timeout=1200):
-        spec = {'endpoint': self.endpoint, 'route': KLING_ROOT, 'payload': payload, 'take': take}
+                 progress=lambda stage: None, timeout=1200, submit_path='/text-to-video'):
+        # Preserve the original Kling take IDs, including completed paid jobs.
+        route = self.route if submit_path == '/text-to-video' else self.route + submit_path
+        spec = {'endpoint': self.endpoint, 'route': route, 'payload': payload, 'take': take}
         run_id = hashlib.sha256(json.dumps(spec, sort_keys=True).encode()).hexdigest()
         directory = Path(journal_root) / run_id
         directory.parent.mkdir(parents=True, exist_ok=True)
@@ -99,7 +102,7 @@ class FoundryClient:
             manifest = {**spec, 'status': 'SUBMITTING'}
             save_json(manifest_path, manifest)
             # Never retry POST: a lost response may still represent a paid job.
-            receipt = self.api('POST', '/text-to-video', payload)
+            receipt = self.api('POST', submit_path, payload)
             save_json(directory / 'receipt.json', receipt)
             request_id = receipt.get('request_id')
             if not isinstance(request_id, str) or not request_id:
@@ -108,7 +111,7 @@ class FoundryClient:
             save_json(manifest_path, manifest)
 
         request_id = manifest['request_id']
-        logging.info('Foundry Kling take %s, request %s', take, request_id)
+        logging.info('Foundry %s take %s, request %s', payload['model'], take, request_id)
         if video.is_file() and manifest.get('status') == 'DOWNLOADED':
             progress(4)
             return video, request_id
