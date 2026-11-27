@@ -1,7 +1,8 @@
 targetScope = 'resourceGroup'
 
 param location string = resourceGroup().location
-param repository string = 'dhruv-chauhan/ComfyUI'
+@description('Exact GitHub OIDC subject, including immutable owner/repository IDs for this fork.')
+param githubOidcSubject string = 'repo:dhruv-chauhan@32761670/ComfyUI@1474515914:environment:comfyui-dev'
 
 var suffix = uniqueString(resourceGroup().id)
 var acrPull = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
@@ -97,7 +98,7 @@ resource federation 'Microsoft.ManagedIdentity/userAssignedIdentities/federatedI
   name: 'github-comfyui-dev'
   properties: {
     issuer: 'https://token.actions.githubusercontent.com'
-    subject: 'repo:${repository}:environment:comfyui-dev'
+    subject: githubOidcSubject
     audiences: ['api://AzureADTokenExchange']
   }
 }

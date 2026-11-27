@@ -79,6 +79,12 @@ GitHub authenticates using OIDC. The release identity has Contributor on this
 resource group and AcrPush on its registry. It cannot grant Azure roles or
 modify the Entra application. Runtime image pulls use a separate identity.
 
+The foundation template's `githubOidcSubject` matches this fork's exact subject,
+including immutable owner/repository IDs. New GitHub repositories use the
+[immutable subject format](https://docs.github.com/en/actions/reference/security/oidc#immutable-subject-claims).
+When adapting this deployment to another repository, set that parameter to its
+actual environment subject rather than assuming the older name-only format.
+
 The new workflow tests the fork's checked-out commit. Some inherited upstream
 workflows explicitly check out upstream; they are not release validation for
 this deployment.
