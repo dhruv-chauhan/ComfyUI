@@ -172,7 +172,7 @@ az deployment group create -g rg-megastocks-illustrations -n comfyui-foundry-acc
 The documented Cognitive Services User role is scoped to the video account.
 It includes inference and account key-read permissions; the node uses only
 Entra tokens and never retrieves account keys. The GitHub release identity
-cannot grant this role. No access to the separate image resource is configured.
+cannot grant this role. Image and speech access is provisioned separately by `media.bicep`.
 
 Each release installs the starter workflow without overwriting existing edits.
 CI runs synthetic video/audio fixtures through every model node, text and image inputs, and Save Video
@@ -235,3 +235,75 @@ Schema references (checked November 27, 2026):
 [LTX Pro](https://fal.ai/models/lightricks/ltx-2.5/text-to-video/pro/api),
 [MiniMax Max](https://fal.ai/models/minimax/h3-max/text-to-video/api),
 [MiniMax Turbo](https://fal.ai/models/minimax/h3-max-turbo/text-to-video/api).
+
+
+### Image generation, editing, and narration
+
+Nine non-Fal nodes appear under **Azure Foundry → image / audio**:
+
+| Models | Workflow use |
+| --- | --- |
+| GPT Image 2.5 Sunburst / Flare | Text-to-image and reference edits; quality, canvas, transparent PNG controls |
+| FLUX.2 Pro / Flex | Text-to-image and multi-reference editing (8 / 10 references); Flex exposes guidance and steps |
+| MAI Image 2.7 / Flash | Text-to-image, reference edits (5 references), transparent PNG |
+| GPT-4o Mini TTS | Text-to-speech with natural-language voice direction |
+| MAI Voice 2.1 / Flash | Expressive narration with three prebuilt English voices and six styles |
+
+These are remote inference nodes; no GPU or model download is required. Images
+are native IMAGE tensors, including alpha when supplied by the model. Connect an
+image output directly to an existing Fal node's `image` input for animation.
+Speech produces native AUDIO, compatible with Save Audio, audio editing, and
+Create Video. These speech nodes generate AI voices, not music or sound effects.
+MAI image 2.7 and voice 2.1 are preview services. No additional non-Fal video node
+is installed: the inspected Azure catalog marks Sora 2 deprecated.
+
+Refresh the browser, then open a `foundry-{model}-text-to-image`, `-image-edit`,
+or `-speech` starter in Workflows. The 15 starters are installed without replacing
+saved edits. For editing, select/upload an image in Load Image before Run. Connect
+an image batch for multiple references; excess references are rejected, never
+silently dropped. MAI edit dimensions follow the source image, so width/height
+apply only to text-to-image. MAI voice controls currently expose English voices.
+
+The same `take` and inputs reuse durable output. Synchronous image/speech APIs
+cannot resume an unknown job after a lost response: an uncertain/rejected take is
+blocked from automatic resubmission. Inspect `/data/user/__foundry/media` before
+changing take. Journals contain prompts and reference hashes (FLUX JSON also
+contains base64 references), never credentials. Files stay on the existing
+Azure Files share. Images save as PNG and speech starters save lossless FLAC.
+
+Infrastructure is declared in `media.bicep` and `media-existing.bicep`:
+
+```sh
+az deployment group create -g rg-comfyui-dev -n comfyui-media \
+  --template-file deploy/azure/media.bicep \
+  --parameters runtimePrincipalId=<runtime-managed-identity-principal-id>
+```
+
+This creates `comfyui-media-7bee` in East US for MAI Image, FLUX, and Azure Speech;
+adds Flare to the existing West US 3 image account and GPT TTS to the existing
+East US 2 video account; and grants the runtime Cognitive Services User on the
+two image accounts. The video account already has that grant. All model
+deployments use GlobalStandard capacity 1. Speech prebuilt voices need no model
+deployment. Sunburst reuses the pre-existing deployment. Keys are not stored in
+ComfyUI: all runtime calls use the managed identity.
+
+Endpoint overrides: `FOUNDRY_MEDIA_ENDPOINT` (MAI/FLUX),
+`FOUNDRY_GPT_IMAGE_ENDPOINT`, `FOUNDRY_AUDIO_ENDPOINT` (GPT TTS),
+`FOUNDRY_SPEECH_ENDPOINT` (regional Speech endpoint), and
+`FOUNDRY_SPEECH_RESOURCE_ID` (full AIServices resource ID). Defaults target this
+studio's resources. Deployment names match the model names in the table.
+
+CI exercises all nine nodes plus all six reference-edit paths through native
+save nodes using cached fixtures, including PNG alpha, before and after container
+replacement. Provider contracts, duplicate-submit prevention, SSML escaping,
+and token handling have independent tests. To explicitly submit a paid test:
+`python deploy/azure/media_workflow.py --submit --model flare` (or add
+`--image existing-input.png`); monitor with the original foundry_workflow.py
+`--status` command.
+
+References checked November 27, 2026:
+[MAI Image](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/use-foundry-models-mai-image),
+[FLUX](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/use-foundry-models-flux),
+[MAI Voice](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/mai-voices),
+[GPT Image Sunburst](https://ai.azure.com/catalog/models/gpt-image-2.5-sunburst),
+[GPT speech API](https://learn.microsoft.com/en-us/azure/foundry/reference/rest/audio-create-speech).

@@ -79,6 +79,9 @@ def main():
     output = remote(group, 'python deploy/azure/foundry_workflow.py --install')
     if 'PASS: Foundry starter workflow installed' not in output:
         raise RuntimeError('Image released, but starter workflow installation failed. Install it before generating video.')
+    output = remote(group, 'python deploy/azure/media_workflow.py --install')
+    if 'PASS: Foundry media workflows installed' not in output:
+        raise RuntimeError('Image released, but media workflow installation failed.')
     logging.info('Release complete. The original Entra configuration is unchanged.')
 
 

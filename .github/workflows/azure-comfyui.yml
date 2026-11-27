@@ -23,10 +23,11 @@ jobs:
           az bicep build --file deploy/azure/foundation.bicep --outfile /tmp/foundation.json
           az bicep build --file deploy/azure/app.bicep --outfile /tmp/app.json
           az bicep build --file deploy/azure/foundry.bicep --outfile /tmp/foundry.json
+          az bicep build --file deploy/azure/media.bicep --outfile /tmp/media.json
       - name: Test user-data routing
         run: |
           python -m pip install pytest pytest-asyncio pytest-aiohttp aiohttp requests
-          python -m pytest tests-unit/prompt_server_test/userdata_paths_test.py tests-unit/prompt_server_test/user_manager_test.py tests-unit/foundry_client_test.py tests-unit/foundry_models_test.py -q
+          python -m pytest tests-unit/prompt_server_test/userdata_paths_test.py tests-unit/prompt_server_test/user_manager_test.py tests-unit/foundry_client_test.py tests-unit/foundry_models_test.py tests-unit/foundry_media_test.py -q
       - name: Build CPU image
         run: docker build -f deploy/azure/Dockerfile -t comfyui:test .
       - name: Test execution and persistence
