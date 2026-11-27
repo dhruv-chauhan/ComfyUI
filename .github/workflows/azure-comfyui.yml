@@ -1,0 +1,70 @@
+name: Azure ComfyUI
+
+on:
+  pull_request:
+    paths: ['deploy/azure/**', '.dockerignore', '.github/workflows/azure-comfyui.yml', 'requirements.txt']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: azure-comfyui-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate infrastructure
+        run: |
+          az bicep build --file deploy/azure/foundation.bicep --outfile /tmp/foundation.json
+          az bicep build --file deploy/azure/app.bicep --outfile /tmp/app.json
+      - name: Build CPU image
+        run: docker build -f deploy/azure/Dockerfile -t comfyui:test .
+      - name: Test execution and persistence
+        run: bash deploy/azure/test-container.sh comfyui:test
+      - name: Export tested image
+        if: github.event_name == 'workflow_dispatch'
+        run: docker save comfyui:test | gzip > /tmp/comfyui-image.tar.gz
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          name: comfyui-image
+          path: /tmp/comfyui-image.tar.gz
+          retention-days: 1
+
+  release:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: comfyui-dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: comfyui-image
+          path: /tmp
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Publish tested image
+        env:
+          ACR_NAME: ${{ vars.ACR_NAME }}
+        run: |
+          gunzip -c /tmp/comfyui-image.tar.gz | docker load
+          az acr login --name "$ACR_NAME"
+          docker tag comfyui:test "$ACR_NAME.azurecr.io/comfyui:$GITHUB_SHA"
+          docker push "$ACR_NAME.azurecr.io/comfyui:$GITHUB_SHA"
+      - name: Release only when idle
+        env:
+          ACR_NAME: ${{ vars.ACR_NAME }}
+        run: python deploy/azure/release.py --registry "$ACR_NAME" --tag "$GITHUB_SHA"
