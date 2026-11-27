@@ -11,6 +11,8 @@ param tenantId string = tenant().tenantId
 @secure()
 param entraClientSecret string
 param publicIngress bool = false
+param foundryVideoEndpoint string = 'https://megastocks-video-7bee.services.ai.azure.com'
+param foundryVideoDeployment string = 'Fal-Kling-V3-Pro'
 
 resource app 'Microsoft.App/containerApps@2024-03-01' = {
   name: 'comfyui-dev'
@@ -39,7 +41,11 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
         name: 'comfyui'
         image: image
         resources: { cpu: 2, memory: '4Gi' }
-        env: [{ name: 'AZURE_CLIENT_ID', value: runtimeClientId }]
+        env: [
+          { name: 'AZURE_CLIENT_ID', value: runtimeClientId }
+          { name: 'FOUNDRY_VIDEO_ENDPOINT', value: foundryVideoEndpoint }
+          { name: 'FOUNDRY_VIDEO_DEPLOYMENT', value: foundryVideoDeployment }
+        ]
         volumeMounts: [{ volumeName: 'data', mountPath: '/data' }]
         probes: [
           { type: 'Startup', tcpSocket: { port: 8188 }, periodSeconds: 5, failureThreshold: 60 }

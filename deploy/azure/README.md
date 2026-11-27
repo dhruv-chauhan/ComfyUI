@@ -9,7 +9,7 @@ per-user isolation boundary.
 
 Container Apps provides HTTPS, WebSockets, and Entra Easy Auth. ComfyUI listens
 on port 8188 with one 2-vCPU/4-GiB replica. The runtime identity pulls from ACR;
-it has no Foundry inference permissions yet. Azure Files is mounted at `/data`:
+it also authenticates to the existing Foundry video resource. Azure Files is mounted at `/data`:
 
 - `/data/input`: uploaded source media.
 - `/data/output`: saved results.
@@ -135,12 +135,52 @@ Budget approximately $47–158/month for compute at current East US 2 retail rat
 plus ACR, file capacity/transactions, logs, transfer, and future model usage.
 There is no automatic scale-to-zero. Review costs at resource-group scope.
 
-## Foundry next
+## Foundry video workflow
 
-Add the image and video nodes in a separate change. Grant the runtime identity
-the appropriate data-plane role on each existing Foundry resource, validate the
-Fal action explicitly, and use `DefaultAzureCredential` with `AZURE_CLIENT_ID`.
-Browser sign-in and server-to-Foundry identity are separate. Persist provider job
-IDs before polling; authenticate same-origin protected video downloads without
-forwarding credentials to external CDNs. Do not assume ComfyUI's generic partner
-nodes use this Azure subscription.
+Open **Workflows → foundry-kling-first-video**. The two nodes are **Kling Text to
+Video (Azure Foundry) → Save Video**. No local model downloads or Comfy partner
+credits are needed. The default five-second silent Kling clip is approximately
+$0.616 at the published rate; actual charges use the Azure offer's pricing.
+
+Set the prompt, duration, aspect ratio, audio option, and take number, then Run.
+Identical inputs reuse or resume the existing take, including after restarts.
+Changing the prompt/settings or take number submits a new paid job. To get a new
+variation of the same shot, increment **take**. Cancelling ComfyUI or reaching the
+20-minute polling limit does not cancel the remote job; Run the same inputs to
+resume it. An uncertain submission is blocked rather than automatically retried.
+
+The native Save Video node writes playable MP4s under `/data/output/foundry`.
+Private job journals, request IDs, original video, and potentially signed result
+URLs live under `/data/user/__foundry/jobs`. These system-user files are not
+served by the user-data API. Keep them for recovery and duplicate-charge
+prevention; they are included in Azure Files snapshots. Do not publish them.
+
+The server uses `DefaultAzureCredential` with `AZURE_CLIENT_ID`,
+`FOUNDRY_VIDEO_ENDPOINT`, and `FOUNDRY_VIDEO_DEPLOYMENT`. Browser Entra sign-in is
+separate from this runtime identity. The Docker defaults point at the existing
+`megastocks-video-7bee` resource and `Fal-Kling-V3-Pro` deployment. Azure tokens
+are sent only to that Foundry host, never to cross-origin video CDNs.
+
+An operator with role-assignment permissions provisions access once:
+
+```sh
+az deployment group create -g rg-megastocks-illustrations -n comfyui-foundry-access \
+  --template-file deploy/azure/foundry.bicep \
+  --parameters runtimePrincipalId=<runtime-managed-identity-principal-id>
+```
+
+The documented Cognitive Services User role is scoped to the video account.
+It includes inference and account key-read permissions; the node uses only
+Entra tokens and never retrieves account keys. The GitHub release identity
+cannot grant this role. No access to the separate image resource is configured.
+
+Each release installs the starter workflow without overwriting existing edits.
+CI runs a synthetic cached-video fixture through the actual node and Save Video
+without Azure credentials or paid requests. To submit the real starter through
+the local ComfyUI API, run `python deploy/azure/foundry_workflow.py --submit`
+inside the container; monitor its returned ComfyUI prompt ID with `--status`.
+
+If a journal has no request ID, inspect `job.json` and `receipt.json` before
+creating a new take. Do not remove the journal merely to retry a timed-out POST:
+the provider might already have accepted the charge. Ordinary completed or
+interrupted jobs with an ID can be resumed by rerunning their original inputs.
