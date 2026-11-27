@@ -34,6 +34,12 @@ async def check(base, verify_only, data_directory):
                      'FoundryMiniMaxVideo', 'FoundryMiniMaxTurboVideo'):
             nodes = await get_json('/object_info/' + node)
             assert nodes[node]['output'] == ['VIDEO', 'STRING']
+        for node in ('FoundryGPTImageSunburst', 'FoundryGPTImageFlare', 'FoundryMAIImage', 'FoundryMAIImageFlash', 'FoundryFluxPro', 'FoundryFluxFlex'):
+            nodes = await get_json('/object_info/' + node)
+            assert nodes[node]['output'] == ['IMAGE']
+        for node in ('FoundryGPTSpeech', 'FoundryMAIVoice', 'FoundryMAIVoiceFlash'):
+            nodes = await get_json('/object_info/' + node)
+            assert nodes[node]['output'] == ['AUDIO']
         if verify_only:
             manifest = json.loads(manifest_path.read_text())
             image = manifest['output']

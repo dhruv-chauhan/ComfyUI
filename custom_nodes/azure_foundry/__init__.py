@@ -3,6 +3,7 @@ import os
 
 from comfy_api.latest import ComfyExtension, io
 
+from .media_nodes import MEDIA_NODES
 from .runtime import generate_video
 from .video_nodes import VIDEO_NODES
 
@@ -38,7 +39,7 @@ class FoundryKlingTextToVideo(io.ComfyNode):
 
 class FoundryExtension(ComfyExtension):
     async def get_node_list(self):
-        return [FoundryKlingTextToVideo, *VIDEO_NODES]
+        return [FoundryKlingTextToVideo, *VIDEO_NODES, *MEDIA_NODES]
 
 
 async def comfy_entrypoint():
