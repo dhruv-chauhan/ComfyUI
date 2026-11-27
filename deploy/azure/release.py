@@ -76,6 +76,9 @@ def main():
     if 'PASS: input, output, workflow, and settings survived replacement' not in output:
         az('containerapp', 'update', '-g', group, '-n', 'comfyui-dev', '--image', old_image)
         raise RuntimeError('Persistence validation failed; restored previous image. Check the studio before submitting jobs.')
+    output = remote(group, 'python deploy/azure/foundry_workflow.py --install')
+    if 'PASS: Foundry starter workflow installed' not in output:
+        raise RuntimeError('Image released, but starter workflow installation failed. Install it before generating video.')
     logging.info('Release complete. The original Entra configuration is unchanged.')
 
 
