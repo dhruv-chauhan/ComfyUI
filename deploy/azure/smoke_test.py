@@ -4,8 +4,8 @@ import asyncio
 import hashlib
 import io
 import json
+import logging
 import time
-import urllib.parse
 import uuid
 from pathlib import Path
 
@@ -41,7 +41,7 @@ async def check(base, verify_only, data_directory):
             settings = await get_json('/settings')
             assert settings['Azure.SmokeTest'] == manifest['marker']
             assert (data_directory / 'input' / manifest['input']).is_file()
-            print('PASS: input, output, workflow, and settings survived replacement')
+            logging.info('PASS: input, output, workflow, and settings survived replacement')
             return
 
         buffer = io.BytesIO()
@@ -77,7 +77,7 @@ async def check(base, verify_only, data_directory):
             else:
                 raise TimeoutError('Image workflow did not finish in 120 seconds')
 
-        output_image = result['outputs']['3']['images'][0]
+        output_image = {key: result['outputs']['3']['images'][0][key] for key in ('filename', 'subfolder', 'type')}
         async with session.get(base + '/view', params=output_image) as response:
             output = await response.read()
         assert Image.open(io.BytesIO(output)).size == (64, 64)
@@ -105,10 +105,11 @@ async def check(base, verify_only, data_directory):
             'marker': marker, 'input': uploaded['name'], 'output': output_image,
             'sha256': hashlib.sha256(output).hexdigest(),
         }, indent=2))
-        print('PASS: WebSocket, upload, Load Image → Scale Image → Save Image, download, workflow, settings')
+        logging.info('PASS: WebSocket, upload, Load Image → Scale Image → Save Image, download, workflow, settings')
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO, format='%(message)s')
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--url', default='http://127.0.0.1:8188')
     parser.add_argument('--verify-persistence', action='store_true')

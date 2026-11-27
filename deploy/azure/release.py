@@ -1,6 +1,7 @@
 """Release a tested image to an idle shared studio, preserving authentication."""
 import argparse
 import json
+import logging
 import os
 import pty
 import select
@@ -40,7 +41,7 @@ def remote(group, command):
             process.terminate()
         process.wait(timeout=10)
     output = b''.join(chunks).decode(errors='replace')
-    print(output, flush=True)
+    logging.info(output)
     return output
 
 
@@ -55,7 +56,7 @@ def main():
              "q=json.load(urllib.request.urlopen('http://127.0.0.1:8188/queue')); "
              "assert not q['queue_running'] and not q['queue_pending'], 'Studio is busy'; "
              "print('COMFYUI_QUEUE_IDLE')\"")
-    if 'COMFYUI_QUEUE_IDLE\r\n' not in remote(group, check):
+    if 'COMFYUI_QUEUE_IDLE' not in [line.strip() for line in remote(group, check).splitlines()]:
         raise RuntimeError('Could not verify an empty queue; release aborted.')
     current = az('containerapp', 'show', '-g', group, '-n', 'comfyui-dev')
     old_image = current['properties']['template']['containers'][0]['image']
@@ -69,14 +70,15 @@ def main():
     snapshot = json.loads(snapshot_result.stdout)['snapshot']
     digest = az('acr', 'repository', 'show', '-n', args.registry, '--image', 'comfyui:' + args.tag, '--query', 'digest')
     image = args.registry + '.azurecr.io/comfyui@' + digest
-    print(json.dumps({'previousImage': old_image, 'image': image, 'storageSnapshot': snapshot}, indent=2), flush=True)
+    logging.info(json.dumps({'previousImage': old_image, 'image': image, 'storageSnapshot': snapshot}, indent=2))
     az('containerapp', 'update', '-g', group, '-n', 'comfyui-dev', '--image', image)
     output = remote(group, 'python deploy/azure/smoke_test.py --verify-persistence')
     if 'PASS: input, output, workflow, and settings survived replacement' not in output:
         az('containerapp', 'update', '-g', group, '-n', 'comfyui-dev', '--image', old_image)
         raise RuntimeError('Persistence validation failed; restored previous image. Check the studio before submitting jobs.')
-    print('Release complete. The original Entra configuration is unchanged.')
+    logging.info('Release complete. The original Entra configuration is unchanged.')
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO, format='%(message)s')
     main()

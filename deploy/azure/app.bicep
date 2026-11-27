@@ -59,7 +59,7 @@ resource auth 'Microsoft.App/containerApps/authConfigs@2024-03-01' = {
     platform: { enabled: true }
     globalValidation: {
       unauthenticatedClientAction: 'RedirectToLoginPage'
-      redirectToProvider: 'azureActiveDirectory'
+      redirectToProvider: 'AzureActiveDirectory'
       excludedPaths: []
     }
     httpSettings: { requireHttps: true }

@@ -5,6 +5,7 @@ Secret values are captured in memory and a private, short-lived parameter file.
 """
 import argparse
 import json
+import logging
 import os
 import subprocess
 import tempfile
@@ -58,19 +59,20 @@ def main():
     (DIRECTORY / '.state.json').write_text(json.dumps(state, indent=2) + '\n')
     parameters = {key: foundation[key] for key in ('registryServer', 'environmentId', 'runtimeIdentityId', 'runtimeClientId', 'tenantId')}
     parameters.update(image=args.image, entraClientId=application['appId'], entraClientSecret=password['secretText'], publicIngress=False)
-    print('Deploying private ComfyUI with authentication...', flush=True)
+    logging.info('Deploying private ComfyUI with authentication...')
     deploy(group, parameters)
     environment = az('containerapp', 'env', 'show', '-g', group, '-n', 'cae-comfyui-dev')
     public_url = 'https://comfyui-dev.' + environment['properties']['defaultDomain']
     az('ad', 'app', 'update', '--id', application['id'], '--web-redirect-uris', public_url + '/.auth/login/aad/callback')
-    print('Entra callback configured; enabling authenticated public ingress...', flush=True)
+    logging.info('Entra callback configured; enabling authenticated public ingress...')
     parameters['publicIngress'] = True
     result = deploy(group, parameters)
     state['url'] = result['url']['value']
     assert state['url'] == public_url, 'Unexpected public hostname; check the Entra redirect URI.'
     (DIRECTORY / '.state.json').write_text(json.dumps(state, indent=2) + '\n')
-    print(json.dumps({'url': state['url'], 'credentialExpiry': expiry}, indent=2))
+    logging.info(json.dumps({'url': state['url'], 'credentialExpiry': expiry}, indent=2))
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO, format='%(message)s')
     main()
