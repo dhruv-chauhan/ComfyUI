@@ -352,7 +352,7 @@ class UserManager():
 
             return path
 
-        @routes.get("/userdata/{file}")
+        @routes.get("/userdata/{file:.+}")
         async def getuserdata(request):
             file = request.match_info.get("file", None)
             try:
@@ -454,7 +454,7 @@ class UserManager():
 
             return web.json_response(resp)
 
-        @routes.delete("/userdata/{file}")
+        @routes.delete("/userdata/{file:.+}")
         async def delete_userdata(request):
             path = get_user_data_path(request, check_exists=True)
             if not isinstance(path, str):
@@ -464,7 +464,7 @@ class UserManager():
 
             return web.Response(status=204)
 
-        @routes.post("/userdata/{file}/move/{dest}")
+        @routes.post("/userdata/{file:.+}/move/{dest:.+}")
         async def move_userdata(request):
             """
             Move or rename a user data file.
@@ -514,3 +514,7 @@ class UserManager():
                 resp = os.path.relpath(dest, user_path)
 
             return web.json_response(resp)
+
+        # Proxies may decode %2F before forwarding nested filenames. Register
+        # this after the move route so file writes do not shadow rename requests.
+        routes.post("/userdata/{file:.+}")(post_userdata)

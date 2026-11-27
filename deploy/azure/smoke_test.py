@@ -38,6 +38,7 @@ async def check(base, verify_only, data_directory):
             assert hashlib.sha256(output).hexdigest() == manifest['sha256']
             workflow = await get_json('/userdata/workflows%2Fazure-smoke-test.json')
             assert workflow['version'] == 0.4
+            assert await get_json('/api/userdata/workflows/azure-smoke-test.json') == workflow
             settings = await get_json('/settings')
             assert settings['Azure.SmokeTest'] == manifest['marker']
             assert (data_directory / 'input' / manifest['input']).is_file()
@@ -99,6 +100,7 @@ async def check(base, verify_only, data_directory):
         }
         async with session.post(base + '/userdata/workflows%2Fazure-smoke-test.json?overwrite=true', json=workflow) as response:
             await response.read()
+        assert await get_json('/api/userdata/workflows/azure-smoke-test.json') == workflow
         async with session.post(base + '/settings', json={'Azure.SmokeTest': marker}) as response:
             await response.read()
         manifest_path.write_text(json.dumps({

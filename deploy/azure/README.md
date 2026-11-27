@@ -20,6 +20,10 @@ not survive a restart. The optional SQLite asset catalog is disabled because
 this deployment uses a network file share. Media generation and normal workflow
 saving do not require that catalog.
 
+User-data routes accept nested paths after Azure ingress decodes URL-encoded
+slashes. This small server compatibility fix preserves ComfyUI's existing
+path-containment and download-response protections.
+
 No GPU, model weights, Manager, or built-in paid partner nodes are enabled.
 Package custom nodes into the image and pin their dependencies. Keep future
 Foundry integrations in custom nodes rather than modifying ComfyUI core.
