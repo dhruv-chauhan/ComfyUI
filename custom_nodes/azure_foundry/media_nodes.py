@@ -81,12 +81,14 @@ class FoundryMAIImage(io.ComfyNode):
     @classmethod
     def define_schema(cls):
         return image_schema(cls, [
-            io.Int.Input('width', default=1024, min=256, max=2048, step=32, tooltip='Generation canvas; reference edits use the input canvas.'),
-            io.Int.Input('height', default=1024, min=256, max=2048, step=32),
-            io.Boolean.Input('transparent_background', default=False)])
+            io.Int.Input('width', default=1024, min=768, max=2048, step=32, tooltip='Generation canvas; reference edits use the input canvas.'),
+            io.Int.Input('height', default=1024, min=768, max=2048, step=32),
+            io.Boolean.Input('transparent_background', default=False, tooltip='Text-to-image only; use the edit prompt for reference edits.')])
 
     @classmethod
     def execute(cls, prompt, width, height, transparent_background, take, images=None):
+        if images is not None and transparent_background:
+            raise ValueError('MAI transparent_background applies to text-to-image. For reference edits, describe the background in the prompt.')
         settings = {'width': width, 'height': height}
         if transparent_background:
             settings['background'] = 'transparent'
