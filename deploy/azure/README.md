@@ -175,7 +175,7 @@ Entra tokens and never retrieves account keys. The GitHub release identity
 cannot grant this role. No access to the separate image resource is configured.
 
 Each release installs the starter workflow without overwriting existing edits.
-CI runs a synthetic cached-video fixture through the actual node and Save Video
+CI runs synthetic video/audio fixtures through every model node, text and image inputs, and Save Video
 without Azure credentials or paid requests. To submit the real starter through
 the local ComfyUI API, run `python deploy/azure/foundry_workflow.py --submit`
 inside the container; monitor its returned ComfyUI prompt ID with `--status`.
@@ -184,3 +184,54 @@ If a journal has no request ID, inspect `job.json` and `receipt.json` before
 creating a new take. Do not remove the journal merely to retry a timed-out POST:
 the provider might already have accepted the charge. Ordinary completed or
 interrupted jobs with an ID can be resumed by rerunning their original inputs.
+
+
+### Additional video models
+
+The same studio now includes four more nodes under **Azure Foundry → video**:
+
+| Node | Resolution choices | Duration | Additional controls |
+| --- | --- | --- | --- |
+| LTX 2.5 Fast Video | 720p, 1080p, 1440p, 2160p | 6–20 seconds in even increments, or auto | FPS, audio, camera motion |
+| LTX 2.5 Pro Video | 720p, 1080p | 6, 8, 10 seconds, or auto | FPS, audio, camera motion |
+| MiniMax H3 Max Video | 480P, 768P, 1080P | 0.92–15 seconds | Prompt expansion |
+| MiniMax H3 Max Turbo Video | 480P, 768P, 1080P | 0.92–15 seconds | Prompt expansion |
+
+LTX Fast durations above 10 seconds require 720p/1080p at 24/25 FPS. MiniMax
+includes generated audio without an audio-off setting; its output can exceed the
+requested duration by about 0.7 seconds. Use fixed durations when comparing costs.
+
+Open `foundry-{ltx-fast,ltx-pro,minimax-max,minimax-turbo}-text-to-video` under
+Workflows. Each has the model node connected to Save Video. Matching
+`-image-to-video` workflows include Load Image: upload/select your first frame
+before Run. You can connect another Load Image to `end_image` for the last frame.
+LTX requires a first frame when supplying a last frame; MiniMax also accepts an
+end frame alone. MiniMax takes the output aspect ratio from the connected image.
+Images are PNG data URIs sent to Foundry; no public image hosting is required.
+These nodes cover text and keyframe animation, not MiniMax reference-to-video.
+
+The four GlobalStandard pay-as-you-go deployments use the existing Foundry
+account and runtime role. `foundry.bicep` provisions them at version `2026-11-02`.
+Default deployment names match their catalog names. Override these environment
+variables only if using differently named deployments:
+
+| Model | Deployment name override |
+| --- | --- |
+| LTX Fast | `FOUNDRY_LTX_FAST_DEPLOYMENT` |
+| LTX Pro | `FOUNDRY_LTX_PRO_DEPLOYMENT` |
+| MiniMax Max | `FOUNDRY_MINIMAX_MAX_DEPLOYMENT` |
+| MiniMax Turbo | `FOUNDRY_MINIMAX_TURBO_DEPLOYMENT` |
+
+The original Kling node and its saved take IDs are unchanged. The new nodes use
+the same managed identity, durable recovery, and credential-safe downloads.
+Outputs are saved under `/data/output/foundry` with a model-specific prefix.
+To submit a paid CLI test inside the container, use
+`python deploy/azure/foundry_workflow.py --submit --model ltx-fast` or add
+`--image existing-input.png` to animate a previously uploaded image.
+
+Schema references (checked November 27, 2026):
+[Microsoft Foundry Fal models](https://learn.microsoft.com/en-us/azure/foundry/how-to/fal-ai-models/enable-fal-models),
+[LTX Fast](https://fal.ai/models/lightricks/ltx-2.5/text-to-video/fast/api),
+[LTX Pro](https://fal.ai/models/lightricks/ltx-2.5/text-to-video/pro/api),
+[MiniMax Max](https://fal.ai/models/minimax/h3-max/text-to-video/api),
+[MiniMax Turbo](https://fal.ai/models/minimax/h3-max-turbo/text-to-video/api).
